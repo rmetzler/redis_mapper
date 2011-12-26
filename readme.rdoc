@@ -30,35 +30,73 @@ Each record consist of one redis hash (each field is a key) and one set in which
   end
 
 
+== Quick Refernce
+
+Creating/Finding/Updating/Deleting/Expiring records
+
+  MyModelKlass.find
+  MyModelKlass.find!
+  MyModelKlass.exists?
+  MyModelKlass.create!
+  MyModelKlass.all
+  MyModelKlass.all! 
+  MyModelKlass.reindex!
+  
+  my_model.fetch!
+  my_model.save
+  my_model.update_attribute!
+  my_model.update_attributes!
+  my_model.increment_attribute!
+  my_model.delete!
+  my_model.expire!
+  my_model.expire_in!
+
+  my_model.saved?
+  my_model.fetched?
+
+  my_model.connections
+  my_model.connect!(other_model)
+  my_model.disconnect!(other_model)
+  
+  my_model.my_index.range
+  my_model.my_index.range!
+  my_model.my_index.first
+  my_model.my_index.first!
+  my_model.my_index.last
+  my_model.my_index.last!
+
+
+== Documentation
+
 === Creating records
 
 Records are automatically created on first save, or explicitly with Model.create. 
  
-  msg = Message.create(:subject => "Test", :body => "Fnord") 
+  msg = Message.create!(:subject => "Test", :body => "Fnord") 
     => <Message id:a8e3453632d1934 saved:true subject:"Test" body:"Fnord" created_at:2011-12-26_03:53:39+0100>
   
   msg1 = Message.new
     => <Message id:a8e9223f32d1904 saved:false subject:nil body:nil created_at:nil>
  
-  msg1.save 
+  msg1.save!
     => <Message id:a8e9223f32d1904 saved:true subject:nil body:nil created_at:2011-12-26_03:53:39+0100>
   
   msg2 = Message.new(:id => "mycustomid123")
     => <Message id:mycustomid123 saved:false subject:nil body:nil created_at:nil>
  
-  msg2.save 
+  msg2.save!
     => <Message id:mycustomid123 saved:true subject:nil body:nil created_at:2011-12-26_03:53:39+0100>
   
   msg3 = Message.new(subject => "Hello")
     => <Message id:a8e9223f32d1904 saved:false subject:"Hello" body:nil created_at:nil>
  
-  msg3.save 
+  msg3.save!
     => <Message id:a8e9223f32d1904 saved:true subject:"Hello" body:nil created_at:2011-12-26_03:53:39+0100>
 
 
 === Finding records
 
-Model.find doesn't actually fetch the record. Model.find! however does and return nil if record doesnt exist.
+Model.find doesn't actually fetch the record. Model.find! however does and returns nil if record doesnt exist.
 
   msg1 = Message.find("a8e3453632d1934")
     => <Message id:a8e3453632d1934 saved:false subject:nil body:nil created_at:nil>
@@ -66,26 +104,26 @@ Model.find doesn't actually fetch the record. Model.find! however does and retur
   msg1.fetch!
     => <Message id:a8e3453632d1934 saved:true subject:"Test" body:"Fnord" created_at:2011-12-26_03:53:39+0100>
   
+  msg2 = Message.find("nonexistentid")
+    => <Message id:nonexistentid saved:false subject:nil body:nil created_at:nil>
+  
+  Message.exists?("a8e3453632d1934")  
+    => true 
+  
+  Message.exists?("nonexistentid")  
+    => false 
+  
   msg2 = Message.find!("a8e3453632d1934")
     => <Message id:a8e3453632d1934 saved:true subject:"Test" body:"Fnord" created_at:2011-12-26_03:53:39+0100>
   
   msg3 = Message.find!("nonexistentid")
     => nil
   
-  msg4 = Message.find("nonexistentid")
-    => <Message id:nonexistentid saved:false subject:nil body:nil created_at:nil>
-
-  Message.exists?("a8e3453632d1934")  
-    => true 
-  
-  Message.exists?("nonexistentid")  
-    => true 
 
 
 == Finding records via index
 
-Indexes are base on redis sorted sets. Band methods fetch objects, non-bang fetch ids
-
+Indexes are stored in redis sorted sets. Bang methods return fetched models, non-bang return ids
 
   msg = Message.by_creation_date.range(0..-1)
     => ["a8e3453632d1934", "a8...", ... ]
