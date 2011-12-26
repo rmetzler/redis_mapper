@@ -1,9 +1,24 @@
 = Entitable
 
-Entitable is a redis/ruby-based ORM gem.
+Entitable is a minimalistic redis/ruby-based ORM gem.
 
 
-== Models
+== Installation
+  
+  gem install entitable
+
+or in your Gemfile
+
+  gem 'entitable, '>= 0.0.1'
+
+
+== Configuration
+
+  require "entitable"
+  Entitable.connect(:redis_uri => "localhost:6379", :redis_prefix => "myproject-dev")
+
+
+== Synopsis
 
 Each record consist of one redis hash (each field is a key) and one set in which the connections are stored. Each index is stored in a sorted set.
 
@@ -121,7 +136,7 @@ Model.find doesn't actually fetch the record. Model.find! however does and retur
   
 
 
-== Finding records via index
+=== Finding records via index
 
 Indexes are stored in redis sorted sets. Bang methods return fetched models, non-bang return ids
 
@@ -147,7 +162,7 @@ Indexes are stored in redis sorted sets. Bang methods return fetched models, non
     => <Message id:a8e3453632d1934 saved:true subject:"Test" body:"Fnord" created_at:2011-12-26_03:53:39+0100>
 
 
-== Updating records
+=== Updating records
 
 All operations are atomic, thanks to redis. Model.increment_attribute can only be called on Integer-fields.
 
@@ -167,7 +182,7 @@ All operations are atomic, thanks to redis. Model.increment_attribute can only b
     => <Message id:a8e3453632d1934 saved:true subject:"Yay" body:"Foobar" views:6 created_at:2011-12-26_03:53:39+0100>
 
 
-== Deleting and expring records
+=== Deleting and expring records
 
 Models can be schedule to be purged/expired. Exirations are de-scheduled when the model is updated.
 
@@ -184,23 +199,50 @@ Models can be schedule to be purged/expired. Exirations are de-scheduled when th
     => true
 
 
-== Connecting Entities
+=== Connecting Entities
 
 Connections are always bidirectional. Different Entities/Models/Classes can be connected to each other.
 
 
-== Installation
+== Helper Models
+
+=== Queues
+
+  msg = Message.find!("a8e3453632d1934")
+    => <Message id:a8e3453632d1934 saved:true subject:"Test" body:"Fnord" views:nil created_at:2011-12-26_03:53:39+0100>
   
-  gem install entitable
+  my_queue = Entitable::Queue.new(:msg_queue)
+    => <Queue id:msg_queue length:123>
 
-or in your Gemfile
+  my_queue.push(msg)
+    => true
 
-  gem 'entitable, '>= 0.0.1'
+  my_queue.pop
+    => <Message id:a8e3453632d1934 saved:true subject:"Test" body:"Fnord" views:nil created_at:2011-12-26_03:53:39+0100>
 
 
-== Configuration
+=== Feeds
 
-  require "entitable"
-  Entitable.connect(:redis_uri => "localhost:6379", :redis_prefix => "myproject-dev")
+  msg = Message.find!("a8e3453632d1934")
+    => <Message id:a8e3453632d1934 saved:true subject:"Test" body:"Fnord" views:nil created_at:2011-12-26_03:53:39+0100>
+  
+  my_feed = Entitable::Feed.new(:msg_feed)
+    => <Feed id:msg_feed tick:23>
 
+  my_feed.push(msg)
+    => 24
+
+  my_feed.tick
+    => 24
+
+  my_feed.since(24)
+    => []
+
+  my_feed.since(23)
+    => [<Message id:a8e3453632d1934...>]
+  
+  my_feed.since(0)
+    => [<Message id:a8e3453632d1934...>, <Message ...>, <Message...>, ...]
+
+    
 
