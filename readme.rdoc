@@ -1,21 +1,21 @@
-= Entitable
+= redis_mapper
 
-Entitable is a minimalistic redis/ruby-based ORM gem.
+redis_mapper is a minimalistic redis-based ORM gem.
 
 
 == Installation
   
-  gem install entitable
+  gem install redis_mapper
 
 or in your Gemfile
 
-  gem 'entitable, '>= 0.0.1'
+  gem 'redis_mapper, '>= 0.0.1'
 
 
 == Configuration
 
-  require "entitable"
-  Entitable.connect(:redis_uri => "localhost:6379", :redis_prefix => "myproject-dev")
+  require "redis_mapper"
+  RedisMapper.connect(:redis_uri => "localhost:6379", :redis_prefix => "myproject-dev")
 
 
 == Synopsis
@@ -23,7 +23,7 @@ or in your Gemfile
 Each record consist of one redis hash (each field is a key) and one set in which the connections are stored. Each index is stored in a sorted set.
 
   class Message
-    include Entitable::Base
+    include RedisMapper::Base
 
     field :subject, :type => String
     field :body, :type => String
@@ -211,7 +211,7 @@ Connections are always bidirectional. Different Entities/Models/Classes can be c
   msg = Message.find!("a8e3453632d1934")
     => <Message id:a8e3453632d1934 saved:true subject:"Test" body:"Fnord" views:nil created_at:2011-12-26_03:53:39+0100>
   
-  my_queue = Entitable::Queue.new(:msg_queue)
+  my_queue = RedisMapper::Queue.new(:msg_queue)
     => <Queue id:msg_queue length:123>
 
   my_queue.push(msg)
@@ -226,7 +226,7 @@ Connections are always bidirectional. Different Entities/Models/Classes can be c
   msg = Message.find!("a8e3453632d1934")
     => <Message id:a8e3453632d1934 saved:true subject:"Test" body:"Fnord" views:nil created_at:2011-12-26_03:53:39+0100>
   
-  my_feed = Entitable::Feed.new(:msg_feed)
+  my_feed = RedisMapper::Feed.new(:msg_feed)
     => <Feed id:msg_feed tick:23>
 
   my_feed.push(msg)
