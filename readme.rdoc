@@ -1,0 +1,168 @@
+= Entitable
+
+Entitable is a redis/ruby-based ORM gem.
+
+
+== Models
+
+Each record consist of one redis hash (each field is a key) and one set in which the connections are stored. Each index is stored in a sorted set.
+
+  class Message
+    include Entitable::Base
+
+    field :subject, :type => String
+    field :body, :type => String
+    field :created_at, :type => DateTime
+    field :views, :type => Integer
+   
+    index :by_creation_date do 
+      self.created_at.to_i 
+    end
+    
+    index :by_number_of_views do 
+      self.views || 0
+    end
+ 
+    after_save do |first_save|
+      update_attribute(:created_at, Time.now) if first_save
+    end
+
+  end
+
+
+=== Creating records
+
+Records are automatically created on first save, or explicitly with Model.create. 
+ 
+  msg = Message.create(:subject => "Test", :body => "Fnord") 
+    => <Message id:a8e3453632d1934 saved:true subject:"Test" body:"Fnord" created_at:2011-12-26_03:53:39+0100>
+  
+  msg1 = Message.new
+    => <Message id:a8e9223f32d1904 saved:false subject:nil body:nil created_at:nil>
+ 
+  msg1.save 
+    => <Message id:a8e9223f32d1904 saved:true subject:nil body:nil created_at:2011-12-26_03:53:39+0100>
+  
+  msg2 = Message.new(:id => "mycustomid123")
+    => <Message id:mycustomid123 saved:false subject:nil body:nil created_at:nil>
+ 
+  msg2.save 
+    => <Message id:mycustomid123 saved:true subject:nil body:nil created_at:2011-12-26_03:53:39+0100>
+  
+  msg3 = Message.new(subject => "Hello")
+    => <Message id:a8e9223f32d1904 saved:false subject:"Hello" body:nil created_at:nil>
+ 
+  msg3.save 
+    => <Message id:a8e9223f32d1904 saved:true subject:"Hello" body:nil created_at:2011-12-26_03:53:39+0100>
+
+
+=== Finding records
+
+Model.find doesn't actually fetch the record. Model.find! however does and return nil if record doesnt exist.
+
+  msg1 = Message.find("a8e3453632d1934")
+    => <Message id:a8e3453632d1934 saved:false subject:nil body:nil created_at:nil>
+ 
+  msg1.fetch!
+    => <Message id:a8e3453632d1934 saved:true subject:"Test" body:"Fnord" created_at:2011-12-26_03:53:39+0100>
+  
+  msg2 = Message.find!("a8e3453632d1934")
+    => <Message id:a8e3453632d1934 saved:true subject:"Test" body:"Fnord" created_at:2011-12-26_03:53:39+0100>
+  
+  msg3 = Message.find!("nonexistentid")
+    => nil
+  
+  msg4 = Message.find("nonexistentid")
+    => <Message id:nonexistentid saved:false subject:nil body:nil created_at:nil>
+
+  Message.exists?("a8e3453632d1934")  
+    => true 
+  
+  Message.exists?("nonexistentid")  
+    => true 
+
+
+== Finding records via index
+
+Indexes are base on redis sorted sets. Band methods fetch objects, non-bang fetch ids
+
+
+  msg = Message.by_creation_date.range(0..-1)
+    => ["a8e3453632d1934", "a8...", ... ]
+  
+  msg = Message.by_creation_date.range!(0..-1)
+    => [Message id:a8e3453632d1934 saved:true subject:"Test" body:"Fnord" created_at:2011-..., <Message...]
+  
+  msg = Message.by_creation_date.range_by_score!(Time.now.to_i..Time.now.to_i)
+    => [Message id:a8e3453632d1934 saved:true subject:"Test" body:"Fnord" created_at:2011-..., <Message...]
+
+  msg = Message.by_number_of_views.first
+    => "a8e3453632d1934"
+  
+  msg = Message.by_number_of_views.first!
+    => <Message id:a8e3453632d1934 saved:true subject:"Test" body:"Fnord" created_at:2011-12-26_03:53:39+0100>
+
+  msg = Message.by_creation_date.last
+    => "a8e3453632d1934"
+  
+  msg = Message.by_creation_date.last!
+    => <Message id:a8e3453632d1934 saved:true subject:"Test" body:"Fnord" created_at:2011-12-26_03:53:39+0100>
+
+
+== Updating records
+
+All operations are atomic, thanks to redis. Model.increment_attribute can only be called on Integer-fields.
+
+  msg = Message.find!("a8e3453632d1934")
+    => <Message id:a8e3453632d1934 saved:true subject:"Test" body:"Fnord" views:nil created_at:2011-12-26_03:53:39+0100>
+
+  msg.update_attribute!(:subject, "Test 123")
+    => <Message id:a8e3453632d1934 saved:true subject:"Test 123" body:"Fnord" views:nil created_at:2011-12-26_03:53:39+0100>
+
+  msg.update_attributes!(:body => "Foobar", :subject => "Yay")
+    => <Message id:a8e3453632d1934 saved:true subject:"Yay" body:"Foobar" views:nil created_at:2011-12-26_03:53:39+0100>
+
+  msg.increment_attribute!(:views)
+    => <Message id:a8e3453632d1934 saved:true subject:"Yay" body:"Foobar" views:1 created_at:2011-12-26_03:53:39+0100>
+  
+  msg.increment_attribute!(:views, 5)
+    => <Message id:a8e3453632d1934 saved:true subject:"Yay" body:"Foobar" views:6 created_at:2011-12-26_03:53:39+0100>
+
+
+== Deleting and expring records
+
+Models can be schedule to be purged/expired. Exirations are de-scheduled when the model is updated.
+
+  msg = Message.find!("a8e3453632d1934")
+    => <Message id:a8e3453632d1934 saved:true subject:"Test" body:"Fnord" views:nil created_at:2011-12-26_03:53:39+0100>
+
+  msg.expire!(60.minutes.from_now)
+    => 2011-12-26_04:53:39+0100
+  
+  msg.expire_in!(3600)
+    => 2011-12-26_04:53:39+0100
+  
+  msg.delete!
+    => true
+
+
+== Connecting Entities
+
+Connections are always bidirectional. Different Entities/Models/Classes can be connected to each other.
+
+
+== Installation
+  
+  gem install entitable
+
+or in your Gemfile
+
+  gem 'entitable, '>= 0.0.1'
+
+
+== Configuration
+
+  require "entitable"
+  Entitable.connect(:redis_uri => "localhost:6379", :redis_prefix => "myproject-dev")
+
+
